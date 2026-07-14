@@ -103,6 +103,10 @@ async function handleIncomingMessage(
   waContacts: WebhookContact[],
 ) {
   const fromRaw = msg.from; // digits only, no +, e.g. "919876543210"
+  if (!fromRaw) {
+    logger.warn({ msgId: msg.id, type: msg.type }, "Skipping message with no 'from' field");
+    return;
+  }
   const fromNorm = normalizePhone(fromRaw);
 
   // Find a Contact whose normalized phone matches
