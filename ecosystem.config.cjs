@@ -3,7 +3,7 @@ module.exports = {
     {
       name: "airavata-api",
       script: "./artifacts/api-server/dist/index.mjs",
-      cwd: "/var/www/airavata",          // change to wherever you clone the repo on VPS
+      cwd: "/var/www/Airavata-Whatsapp-V1",
       instances: 1,
       autorestart: true,
       watch: false,
