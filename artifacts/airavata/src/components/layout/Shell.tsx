@@ -5,6 +5,8 @@ import {
   FileText, Settings, Workflow, Bot, Blocks, UsersRound, ShoppingBag, 
   CreditCard, Menu, Search, Bell, User, LogOut, ChevronRight
 } from 'lucide-react';
+import { toast } from 'sonner';
+import { useAuth } from '../../context/AuthContext';
 
 const SIDEBAR_ITEMS = [
   { title: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
@@ -26,10 +28,21 @@ const SIDEBAR_ITEMS = [
 export function Shell({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [location, setLocation] = useLocation();
+  const { user, logout } = useAuth();
 
   const handleNav = (href: string) => {
     setLocation(href);
     setSidebarOpen(false);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      setLocation('/login');
+      toast.success('Logged out successfully');
+    } catch {
+      toast.error('Logout failed');
+    }
   };
 
   const currentItem = SIDEBAR_ITEMS.find(i => i.href === location) || SIDEBAR_ITEMS[0];
@@ -77,7 +90,7 @@ export function Shell({ children }: { children: ReactNode }) {
           </ul>
         </nav>
 
-        <div className="p-4 border-t border-sidebar-border">
+        <div className="p-4 border-t border-sidebar-border space-y-1">
           <button 
             onClick={() => handleNav('/profile')}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
@@ -86,13 +99,21 @@ export function Shell({ children }: { children: ReactNode }) {
                 : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
             }`}
           >
-            <div className="w-8 h-8 rounded-full bg-sidebar-accent flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full bg-sidebar-accent flex items-center justify-center shrink-0">
               <User className="w-4 h-4" />
             </div>
-            <div className="flex-1 text-left">
-              <div className="text-sm font-medium">Acme Corp</div>
-              <div className="text-xs text-sidebar-foreground/60">admin@acme.com</div>
+            <div className="flex-1 text-left min-w-0">
+              <div className="text-sm font-medium truncate">{user?.businessName ?? '—'}</div>
+              <div className="text-xs text-sidebar-foreground/60 truncate">{user?.email ?? ''}</div>
             </div>
+          </button>
+
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+          >
+            <LogOut className="w-4 h-4" />
+            Sign out
           </button>
         </div>
       </aside>
