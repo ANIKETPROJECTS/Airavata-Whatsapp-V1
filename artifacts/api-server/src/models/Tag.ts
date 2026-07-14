@@ -1,8 +1,8 @@
-import { Schema, model, type InferSchemaType, Types } from "mongoose";
+import { Schema, model, type InferSchemaType } from "mongoose";
 
 const tagSchema = new Schema(
   {
-    userId: { type: Types.ObjectId, ref: "User", required: true, index: true },
+    userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     name: { type: String, required: true, trim: true },
     color: { type: String, default: "#22c55e" },
   },

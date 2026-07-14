@@ -1,8 +1,8 @@
-import { Schema, model, type InferSchemaType, Types } from "mongoose";
+import { Schema, model, type InferSchemaType } from "mongoose";
 
 const groupSchema = new Schema(
   {
-    userId: { type: Types.ObjectId, ref: "User", required: true, index: true },
+    userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     name: { type: String, required: true, trim: true },
     description: { type: String, trim: true },
   },

@@ -1,4 +1,4 @@
-import { Schema, model, type InferSchemaType, Types } from "mongoose";
+import { Schema, model, type InferSchemaType } from "mongoose";
 
 const templateButtonSchema = new Schema(
   {
@@ -11,7 +11,7 @@ const templateButtonSchema = new Schema(
 
 const templateSchema = new Schema(
   {
-    userId: { type: Types.ObjectId, ref: "User", required: true, index: true },
+    userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     name: { type: String, required: true, trim: true },
     category: { type: String, enum: ["MARKETING", "UTILITY", "AUTHENTICATION"], required: true },
     language: { type: String, default: "en_US" },

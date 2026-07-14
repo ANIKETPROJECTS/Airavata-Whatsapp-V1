@@ -1,12 +1,12 @@
-import { Schema, model, type InferSchemaType, Types } from "mongoose";
+import { Schema, model, type InferSchemaType } from "mongoose";
 
 const creditTransactionSchema = new Schema(
   {
-    userId: { type: Types.ObjectId, ref: "User", required: true, index: true },
+    userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     type: { type: String, enum: ["PURCHASE", "DEDUCTION", "REFUND", "ADJUSTMENT"], required: true },
     amount: { type: Number, required: true },
     balanceAfter: { type: Number, required: true },
-    campaignId: { type: Types.ObjectId, ref: "Campaign" },
+    campaignId: { type: Schema.Types.ObjectId, ref: "Campaign" },
     description: { type: String },
   },
   { timestamps: true },

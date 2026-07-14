@@ -1,13 +1,13 @@
-import { Schema, model, type InferSchemaType, Types } from "mongoose";
+import { Schema, model, type InferSchemaType } from "mongoose";
 
 const messageSchema = new Schema(
   {
-    userId: { type: Types.ObjectId, ref: "User", required: true, index: true },
-    contactId: { type: Types.ObjectId, ref: "Contact", required: true, index: true },
-    campaignId: { type: Types.ObjectId, ref: "Campaign" },
+    userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    contactId: { type: Schema.Types.ObjectId, ref: "Contact", required: true, index: true },
+    campaignId: { type: Schema.Types.ObjectId, ref: "Campaign" },
     direction: { type: String, enum: ["OUTBOUND", "INBOUND"], required: true },
     body: { type: String },
-    templateId: { type: Types.ObjectId, ref: "Template" },
+    templateId: { type: Schema.Types.ObjectId, ref: "Template" },
     whatsappMessageId: { type: String, index: true },
     status: {
       type: String,

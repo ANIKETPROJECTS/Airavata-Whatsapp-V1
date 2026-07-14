@@ -1,8 +1,8 @@
-import { Schema, model, type InferSchemaType, Types } from "mongoose";
+import { Schema, model, type InferSchemaType } from "mongoose";
 
 const apiKeySchema = new Schema(
   {
-    userId: { type: Types.ObjectId, ref: "User", required: true, index: true },
+    userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     label: { type: String, default: "Default Key" },
     keyHash: { type: String, required: true },
     keyPrefix: { type: String, required: true },
