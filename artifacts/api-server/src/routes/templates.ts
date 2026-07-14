@@ -83,20 +83,23 @@ router.get("/templates", authenticate, async (req: AuthRequest, res) => {
  */
 router.post("/templates", authenticate, async (req: AuthRequest, res) => {
   try {
-    const { name, category, language, headerType, headerContent, body, footer } = req.body as Record<string, string>;
+    const { name, category, language, headerType, headerContent, body, footer, bodySamples, headerSample } =
+      req.body as Record<string, unknown>;
 
     if (!name || !category || !body) {
       return res.status(400).json({ error: "name, category, and body are required" });
     }
 
     const metaResult = await createMetaTemplate({
-      name,
+      name: String(name),
       category: toUpper(category, "MARKETING") as TemplateCategory,
-      language: language ?? "en_US",
+      language: String(language ?? "en_US"),
       headerType: toUpper(headerType ?? "NONE", "NONE") as HeaderType,
-      headerContent,
-      body,
-      footer,
+      headerContent: headerContent ? String(headerContent) : undefined,
+      body: String(body),
+      footer: footer ? String(footer) : undefined,
+      bodySamples: Array.isArray(bodySamples) ? bodySamples.map(String) : undefined,
+      headerSample: headerSample ? String(headerSample) : undefined,
     });
 
     const template = await TemplateModel.create({

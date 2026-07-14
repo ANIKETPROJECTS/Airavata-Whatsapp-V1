@@ -62,6 +62,10 @@ export interface CreateTemplateParams {
   headerContent?: string;
   body: string;
   footer?: string;
+  /** Ordered sample values for body variables {{1}}, {{2}}, … */
+  bodySamples?: string[];
+  /** Sample value for a text header variable {{1}} */
+  headerSample?: string;
 }
 
 export interface MetaTemplateRecord {
@@ -82,11 +86,16 @@ export async function createMetaTemplate(params: CreateTemplateParams) {
   const components: Component[] = [];
 
   if (params.headerType !== "NONE") {
-    components.push({
+    const headerComp: Component & { example?: { header_text: string[] } } = {
       type: "HEADER",
       format: params.headerType,
       ...(params.headerType === "TEXT" && params.headerContent ? { text: params.headerContent } : {}),
-    });
+    };
+    // Add header sample if provided
+    if (params.headerType === "TEXT" && params.headerSample) {
+      headerComp.example = { header_text: [params.headerSample] };
+    }
+    components.push(headerComp);
   }
 
   // Meta requires example values for every {{N}} variable in the body
@@ -96,8 +105,11 @@ export async function createMetaTemplate(params: CreateTemplateParams) {
     text: params.body,
   };
   if (varIndices.length > 0) {
-    // Use generic placeholders — Meta only needs to see the shape, not real data
-    bodyComponent.example = { body_text: [varIndices.map((i) => `sample_value_${i}`)] };
+    // Use user-provided sample values; fall back to generic placeholders so submission never fails
+    const sampleValues = varIndices.map((i, pos) =>
+      params.bodySamples?.[pos]?.trim() || `sample_value_${i}`,
+    );
+    bodyComponent.example = { body_text: [sampleValues] };
   }
   components.push(bodyComponent);
 

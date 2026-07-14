@@ -1,9 +1,20 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useLocation } from 'wouter';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { MessageSquare, Image as ImageIcon, FileText, Video, AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../lib/api';
+
+/** Returns sorted unique variable numbers found in a string, e.g. "Hi {{1}} ... {{2}}" → [1, 2] */
+function extractVars(text: string): number[] {
+  const matches = [...text.matchAll(/\{\{(\d+)\}\}/g)];
+  return [...new Set(matches.map(m => parseInt(m[1]!, 10)))].sort((a, b) => a - b);
+}
+
+/** Replace {{N}} with sample value (or [Var N] fallback) for the live preview */
+function applysamples(text: string, samples: Record<number, string>): string {
+  return text.replace(/\{\{(\d+)\}\}/g, (_, n) => samples[parseInt(n, 10)] || `[Var ${n}]`);
+}
 
 export default function AddTemplate() {
   const [, navigate] = useLocation();
@@ -17,15 +28,36 @@ export default function AddTemplate() {
   const [bodyText, setBodyText] = useState('Hi {{1}}, welcome to our service!');
   const [footerText, setFooterText] = useState('');
 
+  // Sample values keyed by variable index (1-based)
+  const [samples, setSamples] = useState<Record<number, string>>({});
+
   const insertVariable = () => {
     const match = bodyText.match(/\{\{(\d+)\}\}/g);
     const nextNum = match ? match.length + 1 : 1;
     setBodyText(prev => prev + ` {{${nextNum}}}`);
   };
 
+  // Detect all variables across body + text header
+  const bodyVars = useMemo(() => extractVars(bodyText), [bodyText]);
+  const headerVars = useMemo(
+    () => (headerType === 'TEXT' ? extractVars(headerContent) : []),
+    [headerType, headerContent],
+  );
+  const allVars = useMemo(
+    () => [...new Set([...bodyVars, ...headerVars])].sort((a, b) => a - b),
+    [bodyVars, headerVars],
+  );
+
+  const setSample = (idx: number, value: string) =>
+    setSamples(prev => ({ ...prev, [idx]: value }));
+
   const submitMutation = useMutation({
-    mutationFn: () =>
-      api.post('/templates', {
+    mutationFn: () => {
+      // Build ordered sample arrays
+      const bodySamples = bodyVars.map(i => samples[i] ?? '');
+      const headerSample = headerVars.length > 0 ? (samples[headerVars[0]!] ?? '') : undefined;
+
+      return api.post('/templates', {
         name,
         category,
         language,
@@ -33,7 +65,10 @@ export default function AddTemplate() {
         headerContent: headerType === 'TEXT' ? headerContent : undefined,
         body: bodyText,
         footer: footerText || undefined,
-      }),
+        bodySamples: bodySamples.length > 0 ? bodySamples : undefined,
+        headerSample: headerSample || undefined,
+      });
+    },
     onSuccess: () => {
       toast.success('Template submitted to Meta for approval');
       qc.invalidateQueries({ queryKey: ['templates'] });
@@ -48,6 +83,13 @@ export default function AddTemplate() {
       toast.error('Name and body are required');
       return;
     }
+    // Validate all detected variables have sample values
+    for (const idx of allVars) {
+      if (!samples[idx]?.trim()) {
+        toast.error(`Please provide a sample value for {{${idx}}}`);
+        return;
+      }
+    }
     submitMutation.mutate();
   };
 
@@ -58,6 +100,13 @@ export default function AddTemplate() {
     { value: 'VIDEO', label: 'Video' },
     { value: 'DOCUMENT', label: 'Document' },
   ];
+
+  const PLACEHOLDERS: Record<number, string> = {
+    1: 'e.g. Rahul',
+    2: 'e.g. ORDER123',
+    3: 'e.g. 3 Jan 2025',
+    4: 'e.g. 10:00 AM',
+  };
 
   return (
     <div className="p-6 max-w-6xl mx-auto flex flex-col lg:flex-row gap-8">
@@ -145,7 +194,7 @@ export default function AddTemplate() {
                   type="text"
                   value={headerContent}
                   onChange={e => setHeaderContent(e.target.value)}
-                  placeholder="Header text"
+                  placeholder="Header text (no emojis or special characters)"
                   maxLength={60}
                   className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-primary focus:border-primary outline-none"
                 />
@@ -177,7 +226,41 @@ export default function AddTemplate() {
                 placeholder="Type your message here..."
                 required
               />
+              <p className="text-xs text-gray-400">
+                Use <code className="bg-gray-100 px-1 rounded">{'{{1}}'}</code>,{' '}
+                <code className="bg-gray-100 px-1 rounded">{'{{2}}'}</code> for personalisation variables.
+              </p>
             </div>
+
+            {/* Sample Values — only shown when variables are detected */}
+            {allVars.length > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-3">
+                <div>
+                  <p className="text-sm font-semibold text-amber-900">Sample Values Required</p>
+                  <p className="text-xs text-amber-700 mt-0.5">
+                    Meta requires an example value for every variable to review and approve your template.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  {allVars.map(idx => (
+                    <div key={idx} className="flex items-center gap-3">
+                      <code className="text-xs font-mono bg-amber-100 border border-amber-300 text-amber-800 px-2 py-1 rounded w-14 text-center shrink-0">
+                        {`{{${idx}}}`}
+                      </code>
+                      <input
+                        type="text"
+                        value={samples[idx] ?? ''}
+                        onChange={e => setSample(idx, e.target.value)}
+                        placeholder={PLACEHOLDERS[idx] ?? `e.g. value_${idx}`}
+                        className={`flex-1 px-3 py-1.5 text-sm border rounded-lg outline-none focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400 bg-white ${
+                          !samples[idx]?.trim() ? 'border-amber-300' : 'border-gray-300'
+                        }`}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Footer */}
             <div className="space-y-1.5">
@@ -244,13 +327,13 @@ export default function AddTemplate() {
                     {headerType === 'DOCUMENT' && <FileText className="w-6 h-6" />}
                     {headerType === 'TEXT' && (
                       <span className="font-bold text-gray-800 p-2 text-center">
-                        {headerContent || 'HEADER TEXT'}
+                        {applysamples(headerContent || 'HEADER TEXT', samples)}
                       </span>
                     )}
                   </div>
                 )}
                 <div className="whitespace-pre-wrap leading-relaxed">
-                  {bodyText.replace(/\{\{(\d+)\}\}/g, '[Var $1]')}
+                  {applysamples(bodyText, samples)}
                 </div>
                 {footerText && (
                   <div className="mt-2 pt-2 border-t border-gray-100 text-[11px] text-gray-500">
