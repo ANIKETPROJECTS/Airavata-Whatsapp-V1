@@ -1,36 +1,55 @@
-# [Project name]
+# Airavata — WhatsApp Business Solution
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A WhatsApp Business marketing and engagement platform. Features include campaign management, contact/group organisation, live chat, chatbot flow builder, template management, and WhatsApp-integrated payments (WAPay).
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- **Frontend**: `pnpm --filter @workspace/airavata run dev` (workflow: `artifacts/airavata: web`)
+- **API Server**: `pnpm --filter @workspace/api-server run dev` (workflow: `artifacts/api-server: API Server`)
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+
+## Required Secrets
+
+| Secret | Purpose |
+|---|---|
+| `MONGODB_URI` | MongoDB connection string |
+| `SESSION_SECRET` | JWT signing key |
+| `META_ACCESS_TOKEN` | Meta/WhatsApp Cloud API token |
+| `META_PHONE_NUMBER_ID` | WhatsApp phone number ID |
+| `META_WABA_ID` | WhatsApp Business Account ID |
+
+> **Note**: `DATABASE_URL` (Postgres) is referenced in `lib/db` but the API server uses MongoDB exclusively via Mongoose. The Postgres/Drizzle lib is scaffolding that is not yet wired up.
 
 ## Stack
 
-- pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+- **Monorepo**: pnpm workspaces, Node.js 24, TypeScript 5.9
+- **Frontend**: React 19 + Vite, Tailwind CSS v4, Radix UI / shadcn, Wouter, TanStack Query
+- **API**: Express 5, Pino logging, esbuild (CJS bundle)
+- **DB**: MongoDB + Mongoose (primary); Postgres + Drizzle (scaffold, unused)
+- **Validation**: Zod v4, drizzle-zod
+- **API codegen**: Orval (OpenAPI → React Query hooks + Zod schemas)
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/airavata/` — React frontend (Vite)
+- `artifacts/api-server/` — Express API server
+- `lib/api-spec/` — OpenAPI specification (source of truth for API contract)
+- `lib/api-client-react/` — Generated TanStack Query hooks (from Orval)
+- `lib/api-zod/` — Generated Zod schemas (from Orval)
+- `lib/db/` — Drizzle/Postgres schema (scaffold, not yet active)
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- MongoDB is the active database; Mongoose models live in `artifacts/api-server/src/models/`
+- API contract is spec-first: edit `lib/api-spec/`, run codegen, then implement
+- Frontend uses Wouter for lightweight client-side routing
+- Auth uses JWT signed with `SESSION_SECRET` via `jsonwebtoken` + `bcryptjs`
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+WhatsApp Business SaaS platform — campaigns, contacts, live chat, chatbot builder, template management, WAPay.
 
 ## User preferences
 
@@ -38,7 +57,8 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- The API server build step runs esbuild before starting (`pnpm run build && pnpm run start`); rebuild is required after any backend change
+- Aggregation `$match` stages do NOT auto-cast string IDs — always wrap with `new mongoose.Types.ObjectId(str)`
 
 ## Pointers
 
