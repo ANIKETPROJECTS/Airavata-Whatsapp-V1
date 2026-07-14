@@ -1,0 +1,1 @@
+- [Airavata: MongoDB alongside existing Postgres scaffold](airavata-mongodb-setup.md) — when a project's default `@workspace/db` is Postgres/Drizzle but the user requires MongoDB-only, add mongoose directly to the API server package instead of touching the shared db lib.
