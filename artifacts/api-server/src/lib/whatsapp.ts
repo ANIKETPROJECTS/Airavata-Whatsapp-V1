@@ -28,12 +28,25 @@ async function graphFetch<T>(path: string, options: RequestInit = {}): Promise<T
       ...(options.headers ?? {}),
     },
   });
-  const data = (await res.json()) as T & { error?: { message?: string } };
+  const data = (await res.json()) as T & {
+    error?: { message?: string; error_user_msg?: string; error_user_title?: string; code?: number };
+  };
   if (!res.ok) {
-    const msg = data.error?.message ?? `Meta API error ${res.status}`;
+    // Prefer the human-readable user message Meta provides
+    const msg =
+      data.error?.error_user_msg ??
+      data.error?.error_user_title ??
+      data.error?.message ??
+      `Meta API error ${res.status}`;
     throw new Error(msg);
   }
   return data;
+}
+
+/** Extract variable indices from a template body string, e.g. "Hi {{1}}, your OTP is {{2}}" → [1, 2] */
+function extractVariableIndices(text: string): number[] {
+  const matches = [...text.matchAll(/\{\{(\d+)\}\}/g)];
+  return [...new Set(matches.map((m) => parseInt(m[1]!, 10)))].sort((a, b) => a - b);
 }
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -76,7 +89,17 @@ export async function createMetaTemplate(params: CreateTemplateParams) {
     });
   }
 
-  components.push({ type: "BODY", text: params.body });
+  // Meta requires example values for every {{N}} variable in the body
+  const varIndices = extractVariableIndices(params.body);
+  const bodyComponent: Component & { example?: { body_text: string[][] } } = {
+    type: "BODY",
+    text: params.body,
+  };
+  if (varIndices.length > 0) {
+    // Use generic placeholders — Meta only needs to see the shape, not real data
+    bodyComponent.example = { body_text: [varIndices.map((i) => `sample_value_${i}`)] };
+  }
+  components.push(bodyComponent);
 
   if (params.footer) {
     components.push({ type: "FOOTER", text: params.footer });
