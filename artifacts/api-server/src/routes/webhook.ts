@@ -61,8 +61,13 @@ router.post("/webhook", async (req, res) => {
         const value = change.value;
         if (!value || change.field !== "messages") continue;
 
-        // Only handle events for our phone number
-        if (value.metadata?.phone_number_id !== myPhoneNumberId) continue;
+        // Log phone_number_id for debugging but do not filter on it —
+        // test payloads from Meta dashboard use "123456123" instead of the real ID.
+        if (myPhoneNumberId && value.metadata?.phone_number_id &&
+            value.metadata.phone_number_id !== myPhoneNumberId) {
+          logger.info({ expected: myPhoneNumberId, got: value.metadata.phone_number_id },
+            "Webhook phone_number_id differs from env (continuing anyway)");
+        }
 
         // Handle incoming messages
         for (const msg of value.messages ?? []) {
