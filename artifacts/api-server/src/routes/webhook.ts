@@ -69,10 +69,17 @@ router.post("/webhook", async (req, res) => {
             "Webhook phone_number_id differs from env (continuing anyway)");
         }
 
+        // Debug: log what we received
+        logger.info(
+          { messageCount: value.messages?.length ?? 0, statusCount: value.statuses?.length ?? 0 },
+          "Webhook change received"
+        );
+
         // Handle incoming messages
         for (const msg of value.messages ?? []) {
+          logger.info({ msgId: msg.id, from: msg.from, type: msg.type }, "Processing incoming message");
           await handleIncomingMessage(msg, value.contacts ?? []).catch((err) =>
-            logger.error({ err, msg }, "Error handling incoming message"),
+            logger.error({ err: String(err), msgId: msg.id }, "Error handling incoming message"),
           );
         }
 
@@ -116,7 +123,12 @@ async function handleIncomingMessage(
     const waContact = waContacts.find((wc) => normalizePhone(wc.wa_id) === fromNorm);
     const displayName = waContact?.profile?.name ?? fromRaw;
 
-    const firstUser = await UserModel.findOne().lean();
+    // Prefer the user whose Meta phone number ID matches the env config
+    const configuredPhoneNumberId = process.env.META_PHONE_NUMBER_ID;
+    const firstUser = configuredPhoneNumberId
+      ? await UserModel.findOne({ metaPhoneNumberId: configuredPhoneNumberId }).lean()
+          ?? await UserModel.findOne().sort({ createdAt: -1 }).lean()
+      : await UserModel.findOne().sort({ createdAt: -1 }).lean();
     if (!firstUser) {
       logger.warn({ fromRaw }, "No user found; skipping unknown sender");
       return;

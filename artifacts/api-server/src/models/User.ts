@@ -8,6 +8,7 @@ const userSchema = new Schema(
     phone: { type: String, trim: true },
     timezone: { type: String, default: "Asia/Kolkata" },
     creditBalance: { type: Number, default: 0 },
+    metaPhoneNumberId: { type: String, index: true, sparse: true },
   },
   { timestamps: true },
 );

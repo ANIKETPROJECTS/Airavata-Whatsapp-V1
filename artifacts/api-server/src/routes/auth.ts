@@ -90,6 +90,12 @@ router.post("/auth/login", async (req, res) => {
       return;
     }
 
+    // Stamp META_PHONE_NUMBER_ID onto this user so incoming webhooks route to them correctly
+    const configuredPhoneNumberId = process.env.META_PHONE_NUMBER_ID;
+    if (configuredPhoneNumberId && !user.metaPhoneNumberId) {
+      await UserModel.findByIdAndUpdate(user._id, { metaPhoneNumberId: configuredPhoneNumberId });
+    }
+
     const token = signToken({ userId: user._id.toString(), email: user.email });
     res.cookie(COOKIE_NAME, token, COOKIE_OPTIONS);
 
