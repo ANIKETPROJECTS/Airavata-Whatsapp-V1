@@ -13,6 +13,10 @@ import billingRouter from "./billing";
 
 const router: IRouter = Router();
 
+// Webhook MUST come first — it has no auth and must not be intercepted
+// by the router.use(authenticate) present in the other sub-routers below.
+router.use(webhookRouter);
+
 router.use(healthRouter);
 router.use(authRouter);
 router.use(apiKeysRouter);
@@ -20,7 +24,6 @@ router.use(contactsRouter);
 router.use(groupsRouter);
 router.use(tagsRouter);
 router.use(templatesRouter);
-router.use(webhookRouter);
 router.use(conversationsRouter);
 router.use(campaignsRouter);
 router.use(billingRouter);
