@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MOCK_PHONE_NUMBERS, MOCK_TEAM } from '@/data/manage';
 import { Phone, Key, Users, Tag, CreditCard, CheckCircle2, Copy, Plus, Trash2, Loader2, RefreshCw, Eye, EyeOff, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../lib/api';
@@ -165,6 +164,125 @@ function ApiKeysTab() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Phone Numbers Tab ─────────────────────────────────────────────────────────
+interface PhoneNumber {
+  id: string;
+  number: string;
+  verifiedName: string;
+  quality: string;
+  messagingTier: string;
+  status: string;
+  verified: boolean;
+}
+
+function PhoneNumbersTab() {
+  const { data, isLoading } = useQuery<{ numbers: PhoneNumber[] }>({
+    queryKey: ['phonenumbers'],
+    queryFn: () => api.get('/phonenumbers'),
+  });
+
+  const numbers = data?.numbers ?? [];
+
+  const qualityColor = (q: string) => {
+    if (q === 'GREEN') return 'text-green-600';
+    if (q === 'YELLOW') return 'text-yellow-600';
+    if (q === 'RED') return 'text-red-600';
+    return 'text-gray-500';
+  };
+
+  return (
+    <div className="p-6 space-y-6 animate-in fade-in">
+      <div className="flex justify-between items-center border-b pb-4">
+        <h2 className="text-lg font-semibold text-gray-900">Connected Numbers</h2>
+      </div>
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12 text-gray-400">
+          <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading…
+        </div>
+      ) : numbers.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 gap-2 text-gray-400">
+          <Phone className="w-8 h-8 opacity-30" />
+          <p className="text-sm font-medium text-gray-500">No phone numbers found</p>
+          <p className="text-xs">Add a phone number in your Meta WhatsApp Manager to see it here.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {numbers.map(pn => (
+            <div key={pn.id} className="border rounded-lg p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="font-bold text-gray-900 text-lg">{pn.number}</h3>
+                  {pn.verified && <CheckCircle2 className="w-4 h-4 text-green-500" />}
+                </div>
+                {pn.verifiedName && (
+                  <p className="text-sm text-gray-700 font-medium mb-1">{pn.verifiedName}</p>
+                )}
+                <div className="flex gap-3 text-sm text-gray-500">
+                  <span>Quality: <span className={`font-medium ${qualityColor(pn.quality)}`}>{pn.quality}</span></span>
+                  {pn.messagingTier && pn.messagingTier !== '—' && (
+                    <><span>•</span><span>{pn.messagingTier}</span></>
+                  )}
+                </div>
+              </div>
+              <span className="px-3 py-1 bg-green-50 text-green-700 text-sm font-medium rounded-full border border-green-100">
+                {pn.status}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="bg-blue-50 p-4 rounded-lg text-sm text-blue-800">
+        Ensure your Facebook Business Manager is verified to upgrade your messaging limits.
+      </div>
+    </div>
+  );
+}
+
+// ── Team Tab ──────────────────────────────────────────────────────────────────
+function TeamTab() {
+  const { user } = useAuth();
+
+  const displayName = user?.businessName ?? user?.email ?? 'Admin';
+  const email = user?.email ?? '';
+
+  return (
+    <div className="p-6 space-y-6 animate-in fade-in">
+      <div className="flex justify-between items-center border-b pb-4">
+        <h2 className="text-lg font-semibold text-gray-900">Team Members</h2>
+        <button
+          onClick={() => alert('Team invite coming soon')}
+          className="px-3 py-1.5 bg-primary text-white text-sm font-medium rounded-md hover:bg-primary/90"
+        >
+          Invite Member
+        </button>
+      </div>
+      <div className="divide-y">
+        {/* Show only the real logged-in user */}
+        <div className="py-4 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary">
+              {displayName.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <h3 className="font-medium text-gray-900">{displayName}</h3>
+              <p className="text-sm text-gray-500">{email}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-gray-500">Admin</span>
+            <span className="text-xs px-2 py-1 rounded-full font-medium bg-green-100 text-green-700">
+              Active
+            </span>
+          </div>
+        </div>
+      </div>
+      <p className="text-xs text-gray-400">
+        Multi-user team management is coming soon. You can invite agents and managers to collaborate on conversations.
+      </p>
     </div>
   );
 }
@@ -428,69 +546,11 @@ export default function Manage() {
         {/* Content Area */}
         <div className="flex-1 bg-white rounded-xl border shadow-sm min-h-[400px]">
 
-          {activeTab === 'phone' && (
-            <div className="p-6 space-y-6 animate-in fade-in">
-              <div className="flex justify-between items-center border-b pb-4">
-                <h2 className="text-lg font-semibold text-gray-900">Connected Numbers</h2>
-                <button className="text-sm font-medium text-primary hover:underline">+ Add Number</button>
-              </div>
-              <div className="space-y-4">
-                {MOCK_PHONE_NUMBERS.map(pn => (
-                  <div key={pn.id} className="border rounded-lg p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-bold text-gray-900 text-lg">{pn.number}</h3>
-                        {pn.verified && <CheckCircle2 className="w-4 h-4 text-green-500" />}
-                      </div>
-                      <div className="flex gap-3 text-sm text-gray-500">
-                        <span>Quality: <span className="font-medium text-green-600">{pn.quality}</span></span>
-                        <span>•</span>
-                        <span>{pn.messagingTier}</span>
-                      </div>
-                    </div>
-                    <span className="px-3 py-1 bg-green-50 text-green-700 text-sm font-medium rounded-full border border-green-100">
-                      {pn.status}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <div className="bg-blue-50 p-4 rounded-lg text-sm text-blue-800">
-                Ensure your Facebook Business Manager is verified to upgrade your messaging limits.
-              </div>
-            </div>
-          )}
+          {activeTab === 'phone' && <PhoneNumbersTab />}
 
           {activeTab === 'api' && <ApiKeysTab />}
 
-          {activeTab === 'team' && (
-            <div className="p-6 space-y-6 animate-in fade-in">
-              <div className="flex justify-between items-center border-b pb-4">
-                <h2 className="text-lg font-semibold text-gray-900">Team Members</h2>
-                <button className="px-3 py-1.5 bg-primary text-white text-sm font-medium rounded-md hover:bg-primary/90">Invite Member</button>
-              </div>
-              <div className="divide-y">
-                {MOCK_TEAM.map(member => (
-                  <div key={member.id} className="py-4 flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center font-bold text-gray-600">
-                        {member.name.charAt(0)}
-                      </div>
-                      <div>
-                        <h3 className="font-medium text-gray-900">{member.name}</h3>
-                        <p className="text-sm text-gray-500">{member.email}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <span className="text-sm text-gray-500 capitalize">{member.role}</span>
-                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${member.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                        {member.status}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {activeTab === 'team' && <TeamTab />}
 
           {activeTab === 'tags' && <TagsTab />}
 

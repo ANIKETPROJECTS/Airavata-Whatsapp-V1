@@ -10,6 +10,7 @@ import webhookRouter from "./webhook";
 import conversationsRouter from "./conversations";
 import campaignsRouter from "./campaigns";
 import billingRouter from "./billing";
+import phoneNumbersRouter from "./phonenumbers";
 
 const router: IRouter = Router();
 
@@ -27,5 +28,6 @@ router.use(templatesRouter);
 router.use(conversationsRouter);
 router.use(campaignsRouter);
 router.use(billingRouter);
+router.use(phoneNumbersRouter);
 
 export default router;
