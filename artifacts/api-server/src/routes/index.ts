@@ -6,6 +6,10 @@ import contactsRouter from "./contacts";
 import groupsRouter from "./groups";
 import tagsRouter from "./tags";
 import templatesRouter from "./templates";
+import webhookRouter from "./webhook";
+import conversationsRouter from "./conversations";
+import campaignsRouter from "./campaigns";
+import billingRouter from "./billing";
 
 const router: IRouter = Router();
 
@@ -16,5 +20,9 @@ router.use(contactsRouter);
 router.use(groupsRouter);
 router.use(tagsRouter);
 router.use(templatesRouter);
+router.use(webhookRouter);
+router.use(conversationsRouter);
+router.use(campaignsRouter);
+router.use(billingRouter);
 
 export default router;

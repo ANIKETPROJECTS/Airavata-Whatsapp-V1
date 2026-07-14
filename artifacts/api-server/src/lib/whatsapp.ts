@@ -140,6 +140,24 @@ export async function deleteMetaTemplate(name: string): Promise<void> {
 
 // ── Messaging ─────────────────────────────────────────────────────────────────
 
+/** Send a free-text message within the 24-hour customer-service window. */
+export async function sendTextMessage(to: string, body: string) {
+  const { phoneNumberId } = creds();
+  const result = await graphFetch<{ messages: Array<{ id: string }> }>(
+    `/${phoneNumberId}/messages`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        to: to.replace(/\s+/g, ""),
+        type: "text",
+        text: { body },
+      }),
+    },
+  );
+  return result;
+}
+
 /** Send a template message to a phone number (E.164 format, e.g. +919876543210). */
 export async function sendTemplateMessage(
   to: string,

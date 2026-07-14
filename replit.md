@@ -19,8 +19,19 @@ A WhatsApp Business marketing and engagement platform. Features include campaign
 | `META_ACCESS_TOKEN` | Meta/WhatsApp Cloud API token |
 | `META_PHONE_NUMBER_ID` | WhatsApp phone number ID |
 | `META_WABA_ID` | WhatsApp Business Account ID |
+| `WEBHOOK_VERIFY_TOKEN` | Any string you choose — enter the same value in Meta App Dashboard → WhatsApp → Configuration → Webhook verify token |
 
 > **Note**: `DATABASE_URL` (Postgres) is referenced in `lib/db` but the API server uses MongoDB exclusively via Mongoose. The Postgres/Drizzle lib is scaffolding that is not yet wired up.
+
+## Registering the Webhook (Module 6)
+
+1. Add `WEBHOOK_VERIFY_TOKEN` to Replit Secrets (any string you choose, e.g. `airavata_webhook_2024`).
+2. Deploy the project (or use the Replit public URL) so Meta can reach it.
+3. In Meta App Dashboard → WhatsApp → Configuration, set:
+   - **Callback URL**: `https://<your-replit-domain>/api/webhook`
+   - **Verify token**: the same value as `WEBHOOK_VERIFY_TOKEN`
+4. Subscribe to the `messages` field.
+5. Once verified, incoming messages and delivery status updates will be stored in MongoDB and appear in Live Chat.
 
 ## Stack
 

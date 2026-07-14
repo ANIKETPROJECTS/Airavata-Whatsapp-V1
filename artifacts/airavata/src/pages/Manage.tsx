@@ -272,6 +272,121 @@ function TagsTab() {
   );
 }
 
+// ── Billing Tab ───────────────────────────────────────────────────────────────
+
+interface BillingTransaction {
+  id: string;
+  type: string;
+  amount: number;
+  balanceAfter: number;
+  description: string | null;
+  createdAt: string;
+}
+
+function BillingTab() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  const [addAmount, setAddAmount] = useState('');
+  const [adding, setAdding] = useState(false);
+
+  const { data, isLoading } = useQuery<{ balance: number; transactions: BillingTransaction[] }>({
+    queryKey: ['billing'],
+    queryFn: () => api.get('/billing'),
+  });
+
+  const handleAddCredits = async () => {
+    const amount = parseInt(addAmount, 10);
+    if (!amount || amount <= 0) return toast.error('Enter a valid credit amount');
+    setAdding(true);
+    try {
+      await api.post('/billing/add-credits', { amount, description: 'Manual top-up' });
+      toast.success(`${amount} credits added`);
+      setAddAmount('');
+      qc.invalidateQueries({ queryKey: ['billing'] });
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to add credits');
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const txColor = (type: string) => {
+    switch (type) {
+      case 'PURCHASE': return 'text-green-600';
+      case 'DEDUCTION': return 'text-red-600';
+      case 'REFUND': return 'text-blue-600';
+      default: return 'text-gray-600';
+    }
+  };
+
+  return (
+    <div className="p-6 space-y-6 animate-in fade-in">
+      <div className="border-b pb-4">
+        <h2 className="text-lg font-semibold text-gray-900">Billing & Credits</h2>
+      </div>
+
+      {/* Balance Card */}
+      <div className="bg-gradient-to-r from-gray-900 to-gray-800 text-white rounded-xl p-6 flex justify-between items-center shadow-md">
+        <div>
+          <p className="text-gray-300 text-sm mb-1">Available Credits</p>
+          <h2 className="text-3xl font-bold">
+            {isLoading ? '…' : (data?.balance ?? user?.creditBalance ?? 0).toLocaleString()}
+          </h2>
+          <p className="text-xs text-gray-400 mt-2">1 credit per message recipient</p>
+        </div>
+        <div className="flex gap-2 items-center">
+          <input
+            type="number"
+            min="1"
+            max="100000"
+            placeholder="Amount"
+            value={addAmount}
+            onChange={e => setAddAmount(e.target.value)}
+            className="w-24 px-2 py-2 text-sm bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 outline-none focus:bg-white/20"
+          />
+          <button
+            onClick={handleAddCredits}
+            disabled={adding}
+            className="px-4 py-2 bg-white text-gray-900 font-medium rounded-lg hover:bg-gray-100 shadow-sm text-sm disabled:opacity-60 flex items-center gap-1"
+          >
+            {adding && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            Add Credits
+          </button>
+        </div>
+      </div>
+
+      {/* Transaction History */}
+      <div>
+        <h3 className="font-medium text-gray-900 mb-3">Transaction History</h3>
+        {isLoading ? (
+          <div className="flex items-center text-gray-400 text-sm py-8 justify-center">
+            <Loader2 className="w-4 h-4 animate-spin mr-2" /> Loading…
+          </div>
+        ) : (data?.transactions.length ?? 0) === 0 ? (
+          <p className="text-sm text-gray-400 py-6 text-center">No transactions yet.</p>
+        ) : (
+          <div className="divide-y border rounded-lg overflow-hidden">
+            {data!.transactions.map(tx => (
+              <div key={tx.id} className="flex justify-between items-center px-4 py-3 bg-white hover:bg-gray-50 text-sm">
+                <div>
+                  <p className="font-medium text-gray-900">{tx.description ?? tx.type}</p>
+                  <p className="text-xs text-gray-400">{new Date(tx.createdAt).toLocaleString()}</p>
+                </div>
+                <div className="text-right">
+                  <p className={`font-semibold ${txColor(tx.type)}`}>
+                    {tx.amount > 0 ? '+' : ''}{tx.amount.toLocaleString()}
+                  </p>
+                  <p className="text-xs text-gray-400">Balance: {tx.balanceAfter.toLocaleString()}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Main Page ──────────────────────────────────────────────────────────────────
 export default function Manage() {
   const [activeTab, setActiveTab] = useState('phone');
@@ -379,35 +494,7 @@ export default function Manage() {
 
           {activeTab === 'tags' && <TagsTab />}
 
-          {activeTab === 'billing' && (
-            <div className="p-6 space-y-6 animate-in fade-in">
-              <div className="border-b pb-4">
-                <h2 className="text-lg font-semibold text-gray-900">Billing & Credits</h2>
-              </div>
-
-              <div className="bg-gradient-to-r from-gray-900 to-gray-800 text-white rounded-xl p-6 flex justify-between items-center shadow-md">
-                <div>
-                  <p className="text-gray-300 text-sm mb-1">Available Credits</p>
-                  <h2 className="text-3xl font-bold">{user?.creditBalance?.toLocaleString() ?? '0'}</h2>
-                  <p className="text-xs text-gray-400 mt-2">1 credit per message recipient</p>
-                </div>
-                <button className="px-5 py-2.5 bg-white text-gray-900 font-medium rounded-lg hover:bg-gray-100 shadow-sm">
-                  Buy Credits
-                </button>
-              </div>
-
-              <div className="space-y-3 pt-4">
-                <h3 className="font-medium text-gray-900">Current Plan</h3>
-                <div className="border rounded-lg p-4 flex justify-between items-center">
-                  <div>
-                    <h4 className="font-bold text-gray-900">Pro Tier</h4>
-                    <p className="text-sm text-gray-500">₹4,999 / month</p>
-                  </div>
-                  <button className="text-sm font-medium text-primary hover:underline">Manage Plan</button>
-                </div>
-              </div>
-            </div>
-          )}
+          {activeTab === 'billing' && <BillingTab />}
 
         </div>
       </div>
