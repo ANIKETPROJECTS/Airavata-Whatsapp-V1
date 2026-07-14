@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "Airavata WhatsApp Solution"
+version = "1.0.0"
+id = "artifacts/airavata"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18485
+
+[services.development]
+run = "pnpm --filter @workspace/airavata run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/airavata", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/airavata/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18485"
+BASE_PATH = "/"
