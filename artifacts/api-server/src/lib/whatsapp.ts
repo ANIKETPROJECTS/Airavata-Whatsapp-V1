@@ -91,8 +91,11 @@ export async function createMetaTemplate(params: CreateTemplateParams) {
       format: params.headerType,
       ...(params.headerType === "TEXT" && params.headerContent ? { text: params.headerContent } : {}),
     };
-    // Add header sample if provided
-    if (params.headerType === "TEXT" && params.headerSample) {
+    // Add header sample only when the header text itself contains a variable
+    const headerHasVars = params.headerType === "TEXT" && params.headerContent
+      ? /\{\{\d+\}\}/.test(params.headerContent)
+      : false;
+    if (headerHasVars && params.headerSample) {
       headerComp.example = { header_text: [params.headerSample] };
     }
     components.push(headerComp);
