@@ -28,17 +28,45 @@ async function graphFetch<T>(path: string, options: RequestInit = {}): Promise<T
       ...(options.headers ?? {}),
     },
   });
-  const data = (await res.json()) as T & {
-    error?: { message?: string; error_user_msg?: string; error_user_title?: string; code?: number };
+
+  // Capture the raw text first so we can always log it verbatim
+  const rawText = await res.text();
+  let data: T & {
+    error?: {
+      message?: string;
+      type?: string;
+      code?: number;
+      error_subcode?: number;
+      error_user_msg?: string;
+      error_user_title?: string;
+      fbtrace_id?: string;
+    };
   };
+  try {
+    data = JSON.parse(rawText) as typeof data;
+  } catch {
+    // Non-JSON body — surface it verbatim
+    throw new Error(`Meta API HTTP ${res.status} — non-JSON body: ${rawText}`);
+  }
+
   if (!res.ok) {
-    // Prefer the human-readable user message Meta provides
-    const msg =
-      data.error?.error_user_msg ??
-      data.error?.error_user_title ??
-      data.error?.message ??
-      `Meta API error ${res.status}`;
-    throw new Error(msg);
+    const e = data.error ?? {};
+    // Log every field Meta returns so it appears verbatim in PM2 logs
+    console.error(
+      "[graphFetch] Meta error response\n" +
+      `  HTTP status   : ${res.status}\n` +
+      `  error.code    : ${e.code ?? "(none)"}\n` +
+      `  error.type    : ${e.type ?? "(none)"}\n` +
+      `  error.message : ${e.message ?? "(none)"}\n` +
+      `  error_subcode : ${e.error_subcode ?? "(none)"}\n` +
+      `  fbtrace_id    : ${e.fbtrace_id ?? "(none)"}\n` +
+      `  full body     : ${rawText}`,
+    );
+    // Throw with the complete detail — nothing is replaced or hidden
+    throw new Error(
+      `Meta API HTTP ${res.status} | code=${e.code ?? "-"} subcode=${e.error_subcode ?? "-"} ` +
+      `type=${e.type ?? "-"} fbtrace=${e.fbtrace_id ?? "-"} | ${e.message ?? rawText}`,
+    );
   }
   return data;
 }
@@ -143,7 +171,15 @@ export async function createMetaTemplate(params: CreateTemplateParams) {
     components,
   };
 
-  console.info("[template] Submitting to Meta:", JSON.stringify(payload));
+  const { accessToken } = creds();
+  const endpoint = `${GRAPH_BASE}/${wabaId}/message_templates`;
+  console.info(
+    "[template] PRE-REQUEST\n" +
+    `  URL   : ${endpoint}\n` +
+    `  WABA  : ${wabaId}\n` +
+    `  Token : ${accessToken.slice(0, 20)}...\n` +
+    `  Body  : ${JSON.stringify(payload)}`,
+  );
 
   const result = await graphFetch<{ id: string; status: string }>(
     `/${wabaId}/message_templates`,
@@ -197,7 +233,15 @@ async function buildAndSubmitAuthTemplate(
     components,
   };
 
-  console.info("[template/auth] Submitting to Meta:", JSON.stringify(payload));
+  const { accessToken } = creds();
+  const endpoint = `${GRAPH_BASE}/${wabaId}/message_templates`;
+  console.info(
+    "[template/auth] PRE-REQUEST\n" +
+    `  URL   : ${endpoint}\n` +
+    `  WABA  : ${wabaId}\n` +
+    `  Token : ${accessToken.slice(0, 20)}...\n` +
+    `  Body  : ${JSON.stringify(payload)}`,
+  );
 
   const result = await graphFetch<{ id: string; status: string }>(
     `/${wabaId}/message_templates`,
