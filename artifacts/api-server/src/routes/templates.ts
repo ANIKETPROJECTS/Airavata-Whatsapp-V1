@@ -83,33 +83,45 @@ router.get("/templates", authenticate, async (req: AuthRequest, res) => {
  */
 router.post("/templates", authenticate, async (req: AuthRequest, res) => {
   try {
-    const { name, category, language, headerType, headerContent, body, footer, bodySamples, headerSample } =
-      req.body as Record<string, unknown>;
+    const {
+      name, category, language, headerType, headerContent,
+      body, footer, bodySamples, headerSample,
+      // Authentication-only
+      addSecurityRecommendation, codeExpirationMinutes, otpType,
+    } = req.body as Record<string, unknown>;
 
-    if (!name || !category || !body) {
-      return res.status(400).json({ error: "name, category, and body are required" });
+    const cat = toUpper(category, "MARKETING") as TemplateCategory;
+
+    if (!name || !category) {
+      return res.status(400).json({ error: "name and category are required" });
+    }
+    if (cat !== "AUTHENTICATION" && !body) {
+      return res.status(400).json({ error: "body is required for MARKETING and UTILITY templates" });
     }
 
     const metaResult = await createMetaTemplate({
       name: String(name),
-      category: toUpper(category, "MARKETING") as TemplateCategory,
+      category: cat,
       language: String(language ?? "en_US"),
       headerType: toUpper(headerType ?? "NONE", "NONE") as HeaderType,
       headerContent: headerContent ? String(headerContent) : undefined,
-      body: String(body),
+      body: body ? String(body) : undefined,
       footer: footer ? String(footer) : undefined,
       bodySamples: Array.isArray(bodySamples) ? bodySamples.map(String) : undefined,
       headerSample: headerSample ? String(headerSample) : undefined,
+      addSecurityRecommendation: addSecurityRecommendation === true,
+      codeExpirationMinutes: codeExpirationMinutes ? Number(codeExpirationMinutes) : undefined,
+      otpType: otpType ? String(otpType) as import("../lib/whatsapp").OtpType : undefined,
     });
 
     const template = await TemplateModel.create({
       userId: req.user!.userId,
       name,
-      category: toUpper(category, "MARKETING"),
+      category: cat,
       language: language ?? "en_US",
       headerType: toUpper(headerType ?? "NONE", "NONE"),
       headerContent,
-      body,
+      body: body ?? "(authentication template)",
       footer,
       status: metaResult.status ?? "PENDING",
       metaTemplateId: metaResult.id,

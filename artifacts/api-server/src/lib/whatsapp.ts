@@ -1,9 +1,9 @@
 /**
- * Thin wrapper around Meta's WhatsApp Cloud API (Graph API v20.0).
+ * Thin wrapper around Meta's WhatsApp Cloud API (Graph API v22.0).
  * Reads credentials from environment variables so they never touch source code.
  */
 
-const GRAPH_BASE = "https://graph.facebook.com/v20.0";
+const GRAPH_BASE = "https://graph.facebook.com/v22.0";
 
 function creds() {
   const phoneNumberId = process.env.META_PHONE_NUMBER_ID;
@@ -53,6 +53,7 @@ function extractVariableIndices(text: string): number[] {
 
 export type TemplateCategory = "MARKETING" | "UTILITY" | "AUTHENTICATION";
 export type HeaderType = "NONE" | "TEXT" | "IMAGE" | "VIDEO" | "DOCUMENT";
+export type OtpType = "COPY_CODE" | "ONE_TAP" | "ZERO_TAP";
 
 export interface CreateTemplateParams {
   name: string;
@@ -60,12 +61,20 @@ export interface CreateTemplateParams {
   language: string;
   headerType: HeaderType;
   headerContent?: string;
-  body: string;
+  /** Required for MARKETING/UTILITY; omit for AUTHENTICATION (Meta fills it in) */
+  body?: string;
   footer?: string;
   /** Ordered sample values for body variables {{1}}, {{2}}, … */
   bodySamples?: string[];
   /** Sample value for a text header variable {{1}} */
   headerSample?: string;
+  // ── AUTHENTICATION-only fields ──────────────────────────────────────────────
+  /** Show "For your security, never share this code." recommendation line */
+  addSecurityRecommendation?: boolean;
+  /** Minutes until code expires — renders a countdown footer */
+  codeExpirationMinutes?: number;
+  /** OTP button type: COPY_CODE (copy to clipboard), ONE_TAP (auto-fill), ZERO_TAP (auto-submit) */
+  otpType?: OtpType;
 }
 
 export interface MetaTemplateRecord {
@@ -82,6 +91,15 @@ export interface MetaTemplateRecord {
 export async function createMetaTemplate(params: CreateTemplateParams) {
   const { wabaId } = creds();
 
+  // ── Authentication templates use a completely different payload structure ──
+  // The BODY component must NOT contain `text`; Meta fills the body automatically.
+  if (params.category === "AUTHENTICATION") {
+    return buildAndSubmitAuthTemplate(params, wabaId);
+  }
+
+  // ── MARKETING / UTILITY ───────────────────────────────────────────────────
+  if (!params.body) throw new Error("body is required for MARKETING and UTILITY templates");
+
   type Component = { type: string; format?: string; text?: string };
   const components: Component[] = [];
 
@@ -91,24 +109,22 @@ export async function createMetaTemplate(params: CreateTemplateParams) {
       format: params.headerType,
       ...(params.headerType === "TEXT" && params.headerContent ? { text: params.headerContent } : {}),
     };
-    // Add header sample only when the header text itself contains a variable
-    const headerHasVars = params.headerType === "TEXT" && params.headerContent
-      ? /\{\{\d+\}\}/.test(params.headerContent)
-      : false;
+    const headerHasVars =
+      params.headerType === "TEXT" && params.headerContent
+        ? /\{\{\d+\}\}/.test(params.headerContent)
+        : false;
     if (headerHasVars && params.headerSample) {
       headerComp.example = { header_text: [params.headerSample] };
     }
     components.push(headerComp);
   }
 
-  // Meta requires example values for every {{N}} variable in the body
   const varIndices = extractVariableIndices(params.body);
   const bodyComponent: Component & { example?: { body_text: string[][] } } = {
     type: "BODY",
     text: params.body,
   };
   if (varIndices.length > 0) {
-    // Use user-provided sample values; fall back to generic placeholders so submission never fails
     const sampleValues = varIndices.map((i, pos) =>
       params.bodySamples?.[pos]?.trim() || `sample_value_${i}`,
     );
@@ -120,19 +136,75 @@ export async function createMetaTemplate(params: CreateTemplateParams) {
     components.push({ type: "FOOTER", text: params.footer });
   }
 
+  const payload = {
+    name: params.name,
+    category: params.category,
+    language: params.language,
+    components,
+  };
+
+  console.info("[template] Submitting to Meta:", JSON.stringify(payload));
+
   const result = await graphFetch<{ id: string; status: string }>(
     `/${wabaId}/message_templates`,
-    {
-      method: "POST",
-      body: JSON.stringify({
-        name: params.name,
-        category: params.category,
-        language: params.language,
-        components,
-      }),
-    },
+    { method: "POST", body: JSON.stringify(payload) },
   );
 
+  console.info("[template] Meta response:", JSON.stringify(result));
+  return result;
+}
+
+/** Build and submit an Authentication (OTP) template to Meta. */
+async function buildAndSubmitAuthTemplate(
+  params: CreateTemplateParams,
+  wabaId: string,
+) {
+  type AuthComponent =
+    | { type: "BODY"; add_security_recommendation?: boolean }
+    | { type: "FOOTER"; code_expiration_minutes: number }
+    | { type: "BUTTONS"; buttons: Array<{ type: "OTP"; otp_type: OtpType; text: string }> };
+
+  const components: AuthComponent[] = [];
+
+  // BODY — set add_security_recommendation if requested (omit the key otherwise)
+  const bodyComp: AuthComponent = { type: "BODY" };
+  if (params.addSecurityRecommendation) {
+    (bodyComp as { type: "BODY"; add_security_recommendation?: boolean }).add_security_recommendation = true;
+  }
+  components.push(bodyComp);
+
+  // FOOTER — only include when expiration is set
+  if (params.codeExpirationMinutes && params.codeExpirationMinutes > 0) {
+    components.push({ type: "FOOTER", code_expiration_minutes: params.codeExpirationMinutes });
+  }
+
+  // BUTTONS — OTP button is required for Authentication templates
+  const otpType: OtpType = params.otpType ?? "COPY_CODE";
+  const otpButtonText =
+    otpType === "COPY_CODE" ? "Copy Code" :
+    otpType === "ONE_TAP"   ? "Autofill" :
+    /* ZERO_TAP */             "Autofill";
+
+  components.push({
+    type: "BUTTONS",
+    buttons: [{ type: "OTP", otp_type: otpType, text: otpButtonText }],
+  });
+
+  const payload = {
+    name: params.name,
+    category: "AUTHENTICATION",
+    language: params.language,
+    components,
+  };
+
+  console.info("[template/auth] Submitting to Meta:", JSON.stringify(payload));
+
+  const result = await graphFetch<{ id: string; status: string }>(
+    `/${wabaId}/message_templates`,
+    { method: "POST", body: JSON.stringify(payload) },
+  );
+
+  console.info("[template/auth] Meta response:", JSON.stringify(result));
   return result;
 }
 
